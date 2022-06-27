@@ -43,6 +43,12 @@ app.post("/participants", async (req, res) => {
     }
 })
 
+app.get("/participants", async (req, res) => {
+    const users = await db.collection("usersT").find().toArray();
+    const usersNames = users.map(u => { name: u.name });
+    res.status(200).send(usersNames);
+})
+
 app.listen(5000, () => {
     console.log("Running on port 5000");
 });
