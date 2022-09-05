@@ -4,7 +4,7 @@ import { MongoClient, ObjectId } from "mongodb";
 import joi from 'joi';
 import dayjs from 'dayjs';
 import dotenv from 'dotenv';
-// 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A
+
 // Config
 dotenv.config();
 const { PORT, MONGOURI, MONGOPASSWORD, MONGOUSERNAME } = process.env;
