@@ -70,17 +70,18 @@ app.get("/participants", async (_, res) => {
 })
 
 app.post("/messages", async (req, res) => {
-    const from = req.header.User;
+    const from = req.headers.user;
     const { to, text, type } = req.body;
 
     const validateMessage = messageSchema.validate({ to, text, type });
     if( validateMessage.error ) return res.status(422).send("Invalid Message");
     
     try {
+        console.log(from)
         const realUser = await db.collection('users').findOne({ name: from }); 
         if( !realUser ) return res.status(422).send("Log in first");
 
-        const message = db.collection("messages").insertOne({ to, text, type, from, time: dayjs().format('HH:MM:ss') });
+        const message = await db.collection("messages").insertOne({ to, text, type, from, time: dayjs().format('HH:MM:ss') });
         console.log(message);
         res.sendStatus(201);
     
