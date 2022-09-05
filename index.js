@@ -16,6 +16,9 @@ const client = new MongoClient(MONGOURI, { auth: { username: MONGOUSERNAME, pass
 let db;
 client.connect().then(() => db = client.db("Project12"));
 
+// AMN
+const DEFAULTLIMIT = 100;
+
 // Joi's Schemas
 const userSchema = joi.object({
     name: joi.string().required()
@@ -86,7 +89,35 @@ app.post("/messages", async (req, res) => {
         res.sendStatus(201);
     
     } catch (error) {
+        console.log(error.message);
+        return res.status(500).send("Internal issue, please try again later.");
+    }
+})
+
+app.get("/messages", async (req, res) => {
+    
+    const { user } = req.headers;
+
+    try {
+        const messages = await db.collection("messages").find().toArray();
+        const filteredMessages = messages.filter(m => (m.to === user || m.type === "message"));
+        const length = filteredMessages.length;
+
+        const limit = (req.query.limit) ? 
+        (length < req.query.limit)? length : req.query.limit // querylimit can not be larger than the amount of messages 
+        : 
+         (length < DEFAULTLIMIT) ? length : DEFAULTLIMIT; // limit will be the messages amount if there is less than 100 messages and there is no querylimit
+        console.log(limit);
         
+        const toSendMessages = new Array;
+        for(let i = 0; i < limit; i++) {
+            toSendMessages.push(filteredMessages[length - 1 - i]);
+        }
+        return res.status(200).send(toSendMessages);
+        
+    } catch (error) {
+        console.log(error.message);
+        res.status(500).send("Internal issue, please try again later");
     }
 })
 
