@@ -18,6 +18,8 @@ client.connect().then(() => db = client.db("Project12"));
 
 // AMN
 const DEFAULTLIMIT = 100;
+const UPDATETIME = 15000;
+const INACTIVITYTIME = 10000;
 
 // Joi's Schemas
 const userSchema = joi.object({
@@ -30,17 +32,26 @@ const messageSchema = joi.object({
     type: joi.string().valid("message", "private_message").required()
 })
 
-//Paths
-app.get("/test", async (req, res) => {
+// Automatic removing users
+const removeInactives = async () => {
     try {
-        const insert = await db.collection("test").insertOne({dios: "mio"});
-        console.log(insert);
-        res.sendStatus(200)
+        const users = await db.collection("users").find().toArray();
+        const toDeleteUsers = users.filter(u => { return ((Date.now() - u.lastStatus) > INACTIVITYTIME)});
+        
+        for(let i = 0; i < toDeleteUsers.length; i++) {
+            const user = toDeleteUsers[i];
+            const deleted = await db.collection("users").deleteOne({ _id: ObjectId(user._id) });
+            const leftMessage = await db.collection("messages").insertOne({ from: user.name, to: "all", type: "status", text: "Left the room", time: dayjs().format('HH:MM:ss') });
+            console.log("status", deleted, leftMessage);
+        }
     } catch (error) {
-        console.log(error.message);
-        res.send("Internal issue, please try again later").status(500);
-    }   
-})
+        console.log("error", error.message);
+        return 500;
+    }
+}
+setInterval(removeInactives, UPDATETIME);
+
+//Paths
 
 app.post("/participants", async (req, res) => {
     const username = req.body;
@@ -52,8 +63,9 @@ app.post("/participants", async (req, res) => {
         const conflict = await db.collection("users").findOne({ name: username.name });
         if(conflict) return res.status(409).send("Username already taken");
 
-        const promise = await db.collection("users").insertOne({ name: username.name, lastStatus: Date.now() });
-        console.log(promise);
+        const newUser = await db.collection("users").insertOne({ name: username.name, lastStatus: Date.now() });
+        console.log(newUser);
+        const enterMessage = await db.collection("messages").insertOne({ from: username.name, to: "all", type: "status", text: "Enter the room", time: dayjs().format('HH:MM:ss') }) 
         return res.status(201).send("User registered successfully");
     
     } catch (error) {
@@ -100,7 +112,7 @@ app.get("/messages", async (req, res) => {
 
     try {
         const messages = await db.collection("messages").find().toArray();
-        const filteredMessages = messages.filter(m => (m.to === user || m.type === "message"));
+        const filteredMessages = messages.filter(m => (m.from === user || m.to === user || m.type === "message" || m.type === "status"));
         const length = filteredMessages.length;
 
         const limit = (req.query.limit) ? 
@@ -113,7 +125,7 @@ app.get("/messages", async (req, res) => {
         for(let i = 0; i < limit; i++) {
             toSendMessages.push(filteredMessages[length - 1 - i]);
         }
-        return res.status(200).send(toSendMessages);
+        return res.status(200).send(toSendMessages.reverse());
         
     } catch (error) {
         console.log(error.message);
@@ -121,7 +133,7 @@ app.get("/messages", async (req, res) => {
     }
 })
 
-app.put("/status", async (req, res) => {
+app.post("/status", async (req, res) => {
     const { user } = req.headers;
     
     try {
