@@ -121,4 +121,21 @@ app.get("/messages", async (req, res) => {
     }
 })
 
+app.put("/status", async (req, res) => {
+    const { user } = req.headers;
+    
+    try {
+        const realUser = await db.collection("users").findOne({ name: user });
+        if( !realUser ) return res.sendStatus(404);
+        
+        const update = await db.collection("users").updateOne({ _id: ObjectId(realUser._id) }, { $set: { lastStatus: Date.now() } })
+        console.log(update);
+        return res.sendStatus(200);
+
+    } catch (error) {
+        console.log(error.message);
+        res.status(500).send("Internal issue, please try again later");
+    }
+})
+
 app.listen(PORT, () => console.log(`Running on port ${ PORT }`));
